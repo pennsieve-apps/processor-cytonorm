@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=https://schemas.pennsieve.io/app-manifest/v1.json
+schemaVersion: "1.0"
+application:
+  name: CytoNorm Batch Normalization
+  description: >-
+    Removes batch effects from arcsinh-transformed flow / mass cytometry FCS files with
+    CytoNorm (Van Gassen et al., Cytometry A 2020; CytoNorm 2.0, Quintelier et al.,
+    Cytometry A 2025). Cells are grouped into a few FlowSOM metaclusters; per metacluster,
+    batch and marker a quantile-to-quantile spline is learned from reference samples
+    (a control aliquot measured in every batch, MODE=controls) or from each batch's pooled
+    samples (MODE=cohort) and applied to every file. Writes the normalised files with the
+    same names, channels and keywords (only marker values change; PENNSIEVE_NORM keyword
+    added) and QC tables, spline plots and the model.
+  type: processor
+  tags: [cytometry, flow-cytometry, fcs, batch-correction, normalization, cytonorm, flowsom]
+runtime:
+  cpu: 2048
+  # Measured on the full demo data (24 files, 10.2 M events, 25 markers): see README Runtime.
+  memory: 8192
+  computeTypes: [standard]
+  timeoutSeconds: 7200
+parameters:
+  - name: MODE
+    type: string
+    label: Training samples
+    description: >-
+      controls (CytoNorm 1): learn the batch effect from reference samples - the same
+      control sample measured in every batch, chosen by REFERENCE_COLUMN /
+      REFERENCE_VALUES; batches without one are skipped. cohort (CytoNorm 2.0, no
+      dedicated controls): learn it from all samples of each batch pooled, which assumes
+      every batch holds a comparable mix of samples.
+    defaultValue: controls
+    validValues: [controls, cohort]
+  - name: BATCH_COLUMN
+    type: string
+    description: Column of samples.csv that names each sample's batch.
+    defaultValue: batch
+  - name: REFERENCE_COLUMN
+    type: string
+    description: >-
+      Column of samples.csv that marks the reference samples (MODE=controls). Its other
+      values that recur across batches (e.g. a second control aliquot) are reported as
+      held-out replicates in qc/cytonorm/replicate_spread.csv.
+    defaultValue: control
+  - name: REFERENCE_VALUES
+    type: string
+    description: >-
+      Comma-separated REFERENCE_COLUMN values of the reference samples (MODE=controls).
+      Several references in a batch are pooled. Demo data: tcu1, an aliquot of the same
+      unstimulated donor (181C) in every batch.
+    defaultValue: tcu1
+  - name: GOAL
+    type: string
+    description: >-
+      Distribution the batches are normalised to: mean (per quantile, the mean over the
+      batches' reference quantiles) or a batch id (that batch's references; it is then
+      left unchanged).
+    defaultValue: mean
+  - name: N_METACLUSTERS
+    type: integer
+    description: >-
+      FlowSOM metaclusters that get their own splines (cell-type-specific correction).
+      Few, broad clusters (the authors use 3-10): clusters must not themselves be split
+      by batch - check qc/cytonorm/metacluster_cv.csv.
+    defaultValue: 5
+    min: 3
+    max: 100
+  - name: N_QUANTILES
+    type: integer
+    description: Quantiles per metacluster and marker that define the splines (101 = every 1 %, minus the extremes).
+    defaultValue: 101
+    min: 2
+    max: 1001
+  - name: XDIM
+    type: integer
+    description: FlowSOM grid width (nodes before metaclustering).
+    defaultValue: 15
+    min: 2
+    max: 100
+  - name: YDIM
+    type: integer
+    description: FlowSOM grid height.
+    defaultValue: 15
+    min: 2
+    max: 100
+  - name: TRAIN_CELLS_PER_SAMPLE
+    type: integer
+    description: >-
+      At most this many events per training sample (seeded subsample) go into the
+      model; 0 = all. Bounds memory; every event of every file is still normalised.
+    defaultValue: 200000
+    min: 0
+  - name: EXTRAPOLATION
+    type: string
+    description: >-
+      Values beyond the outermost trained quantiles of their batch and metacluster. shift
+      (default): moved by the spline's correction at that end quantile (slope 1), never
+      stretched. spline: CytoNorm's own linear extrapolation with the spline's end slope,
+      which can throw values far off scale when a sample expresses a marker the
+      references do not (e.g. CD103 on stimulated cells vs unstimulated references).
+    defaultValue: shift
+    validValues: [shift, spline]
+  - name: MARKERS
+    type: string
+    description: >-
+      Comma-separated markers (panel.csv marker or channel names) to normalise. Empty:
+      every panel row of type marker. Clustering uses those of them with clustering=true
+      in panel.csv (all of them when none is).
+    defaultValue: ""
+  - name: SEED
+    type: integer
+    description: Seed for the training subsample and FlowSOM.
+    defaultValue: 42
+inputs:
+  - name: fcs
+    description: >-
+      Arcsinh-transformed FCS files, <sample_id>.fcs (from fcs-prep / peacoqc). Found in
+      INPUT_DIR/fcs/ when linked, else anywhere under INPUT_DIR.
+    mediaTypes: [application/vnd.isac.fcs]
+    placement: subfolder
+    required: true
+  - name: metadata
+    description: >-
+      samples.csv (sample_id, batch, condition and the REFERENCE_COLUMN) and panel.csv
+      (channel, marker, type, clustering) from fcs-prep. Found in INPUT_DIR/metadata/ when
+      linked, else anywhere under INPUT_DIR by name.
+    mediaTypes: [text/csv]
+    placement: subfolder
+    required: true
+outputs:
+  - name: fcs
+    description: >-
+      fcs/<sample_id>.fcs: the normalised files, same events, channels and keywords as the
+      input; marker channels changed, keyword PENNSIEVE_NORM added. fcs/provenance.json.
+    mediaTypes: [application/vnd.isac.fcs, application/json]
+  - name: qc
+    description: >-
+      Everything under qc/cytonorm/ (so it can share a folder with other methods' qc):
+      reference_quantiles.csv, replicate_spread.csv and replicate_spread_by_metacluster.csv
+      (marker quantiles / medians of reference and replicate samples before and after, and
+      their spread across batches), metacluster_cv.csv, metacluster_counts.csv,
+      splines/<batch>.png, cytonorm_model.rds, provenance.json.
+    mediaTypes: [text/csv, image/png, application/octet-stream, application/json]
