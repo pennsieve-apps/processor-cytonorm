@@ -141,3 +141,11 @@ outputs:
       their spread across batches), metacluster_cv.csv, metacluster_counts.csv,
       splines/<batch>.png, cytonorm_model.rds, provenance.json.
     mediaTypes: [text/csv, image/png, application/octet-stream, application/json]
+
+# How a release is tested before it is made public: the inputs a review run uses.
+# See app-deploy-service docs/app-manifest-review.md.
+review:
+  version: 1
+  generate:
+    command: python tests/make_fixture.py --source "$REVIEW_SOURCE_DIR" --out "$REVIEW_INPUT_DIR" --events 20000 --sheet tests/demo-samples.csv
+    source: { doi: 10.5281/zenodo.15388817, files: ["B0[1-6]_*.fcs"] }

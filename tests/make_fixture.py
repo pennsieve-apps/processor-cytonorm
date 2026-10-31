@@ -15,7 +15,7 @@ Events are subsampled per file (seeded, original order kept); --events 0 keeps a
 QC (PeacoQC) is not applied: the fixture is "prep" output, which is what peacoqc would
 pass through for a clean file.
 
-Usage: python3 tests/make_fixture.py --source <zenodo dir> --out data/fixture [--events 20000]
+Usage: python3 tests/make_fixture.py --source <zenodo dir> --out data/fixture [--events 20000] [--sheet tests/demo-samples.csv]
 Needs numpy and flowio (requirements-dev.txt).
 """
 from __future__ import annotations
@@ -73,9 +73,10 @@ def main() -> None:
     ap.add_argument("--events", type=int, default=20000, help="events per file (0 = all)")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--only", default="", help="comma-separated sample_ids to include (default all)")
+    ap.add_argument("--sheet", type=Path, help="the sample sheet (default: <source>/samples.csv), e.g. tests/demo-samples.csv")
     args = ap.parse_args()
 
-    with open(args.source / "samples.csv", newline="") as fh:
+    with open(args.sheet or args.source / "samples.csv", newline="") as fh:
         sheet = list(csv.DictReader(fh))
     only = {s for s in args.only.split(",") if s}
     if only:
