@@ -1,5 +1,6 @@
 cff-version: "1.2.0"
-message: If you use this app, please cite it and the works it builds on, listed under references.
+message: >-
+  If you use this app, please cite the work it implements (preferred-citation), this release, and Pennsieve (RRID:SCR_021677); the other works it builds on are listed under references.
 type: software
 title: CytoNorm Batch Normalization
 abstract: Removes batch effects from arcsinh-transformed flow or mass cytometry FCS files with CytoNorm,
@@ -17,6 +18,28 @@ keywords:
 - normalization
 - cytonorm
 - flowsom
+# The work this app implements; the release report's "How to cite" puts it first.
+preferred-citation:
+  type: article
+  title: 'CytoNorm: A Normalization Algorithm for Cytometry Data'
+  authors:
+  - family-names: Van Gassen
+    given-names: Sofie
+  - family-names: Gaudilliere
+    given-names: Brice
+  - family-names: Angst
+    given-names: Martin S.
+  - family-names: Saeys
+    given-names: Yvan
+  - family-names: Aghaeepour
+    given-names: Nima
+  year: 2020
+  journal: Cytometry Part A
+  volume: 97
+  issue: '3'
+  start: '268'
+  end: '278'
+  doi: 10.1002/cyto.a.23904
 references:
 - type: article
   title: 'CytoNorm: A Normalization Algorithm for Cytometry Data'
